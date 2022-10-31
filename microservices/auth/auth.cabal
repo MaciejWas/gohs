@@ -1,0 +1,87 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.35.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           auth
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/auth#readme>
+homepage:       https://github.com/githubuser/auth#readme
+bug-reports:    https://github.com/githubuser/auth/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2022 Author name here
+license:        BSD3
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/auth
+
+library
+  exposed-modules:
+      Auth
+      AuthWorker
+      IdMap
+      Security.Passwords
+  other-modules:
+      Paths_auth
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , binary
+    , bytestring
+    , cryptonite
+    , hedis
+    , lib
+    , mtl
+    , text
+    , uuid
+  default-language: Haskell2010
+
+executable auth-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_auth
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , auth
+    , base >=4.7 && <5
+    , binary
+    , bytestring
+    , cryptonite
+    , hedis
+    , lib
+    , mtl
+    , text
+    , uuid
+  default-language: Haskell2010
+
+test-suite auth-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_auth
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , auth
+    , base >=4.7 && <5
+    , binary
+    , bytestring
+    , cryptonite
+    , hedis
+    , lib
+    , mtl
+    , text
+    , uuid
+  default-language: Haskell2010
