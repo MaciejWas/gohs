@@ -1,44 +1,66 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
-module Lib.Worker (QueueWorker(..), run) where
+module Lib.Worker (StreamWorker(..), run) where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad (forever)
 import Control.Monad.Except (runExceptT)
 import qualified Data.ByteString.Lazy as Lazy
 import Database.Redis (Connection, runRedis)
-import Lib.Errors (AppErr, AppResult, ErrType (InternalErr), orThrowIfEmpty, withMessage)
+import Lib.Errors (AppErr (AppErr), AppResult, ErrType (InternalErr), orThrowIfEmpty, withMessage, doWithRedis)
 import Lib.Log (err, info)
-import Lib.Queue (HasQueue (..), RedisQueue, getMsg, postMsg)
+import Lib.Queue (Stream(..), StreamMessage(..), rcv, send,registerConsumer, Consumer (Consumer), Group (Group))
 import qualified Relude
+import Data.Text (pack)
+import qualified Data.ByteString as Eager
+import qualified Data.Binary as Binary
+import Relude (Text)
+import Relude.String (encodeUtf8)
+import Control.Monad (forM_)
+import Control.Concurrent ( forkIO )
+import Lib.DataModel.AuthModel (AuthRequest(AuthRequest))
 
-data QueueWorker a b s = QueueWorker
-  { name :: String,
-    listen_to :: RedisQueue a,
-    publish_to :: RedisQueue b,
+
+data StreamWorker a b s = StreamWorker
+  { name :: Text,
     loadState :: AppResult s,
-    findSubQueue :: a -> Lazy.ByteString,
     ms_main :: s -> a -> AppResult b
   }
 
-mainLoopPass :: (HasQueue a, HasQueue b) => Connection -> QueueWorker a b s -> s -> IO ()
-mainLoopPass conn worker state = do
+mainLoopPass :: (StreamMessage a, StreamMessage b) => Connection -> Consumer a -> StreamWorker a b s -> s -> IO ()
+mainLoopPass conn consumer worker state = do
   let runApp = runRedis conn . runExceptT :: AppResult a -> IO (Either AppErr a)
-  let getNewMessage = getMsg `orThrowIfEmpty` (InternalErr `withMessage` "it's ok")
-  msg <- runApp getNewMessage
+  msg <- runApp (rcv consumer)
   case msg of
-    Left err -> return ()
-    Right message ->
-      let performWorkerAction = ms_main worker state message
-          handleNextMessage = runApp (performWorkerAction >>= postMsg) >> ignoreResult
-       in forkIO handleNextMessage >> ignoreResult
+    Left (AppErr _ errmsg) -> Lib.Log.err (show errmsg)
+    Right [] -> ignoreResult
+    Right messages ->
+      let handleMsg msg = runApp (performWorkerAction msg >>= send) >> ignoreResult 
+          performWorkerAction = ms_main worker state
+       in forM_ messages (forkIO . handleMsg)
 
-run :: (HasQueue a, HasQueue b) => Connection -> QueueWorker a b s -> IO ()
-run conn worker = do
-  info ("Kurwa jedziemy z koksem skurwysyny: " ++ name worker)
+run :: (StreamMessage a, StreamMessage b) => Connection -> StreamWorker a b s -> IO ()
+run conn (worker :: StreamWorker a b s) = do
+  info ("Kurwa jedziemy z koksem skurwysyny: " ++ show (name worker))
+
+  let runApp = runRedis conn . runExceptT :: forall x. AppResult x -> IO (Either AppErr x)
+  let group = Group "gr":: Group a
+  let consoomer = Consumer group "cons" :: Consumer a
+
   state <- runRedis conn (runExceptT $ loadState worker) >>= assumeSuccess
-  let doTask = mainLoopPass conn worker state
-  forever doTask
+  registerConsumerResult <- runApp (registerConsumer consoomer)
+
+  -- runApp (send (AuthRequest 0 0 0) )
+
+  case registerConsumerResult of
+    Left err -> Lib.Log.err $ "Failed to register consumer. " ++ show err
+    Right ok -> let doTask = mainLoopPass conn consoomer worker state 
+                in forever (doTask >> threadDelay 1000000)
+
+
+  
 
 -- UTILS --
 

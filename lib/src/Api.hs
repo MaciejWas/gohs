@@ -1,30 +1,38 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE InstanceSigs #-}
 
 module Api where
 
-import Data.Binary (Binary)
 import Data.ByteString.Lazy (singleton)
+import Data.ByteString as Eager ( ByteString )
 import qualified Data.ByteString.Lazy as Lazy
-import Lib.DataModel.AuthModel (AuthRequest (AuthRequest), AuthResponse (..))
-import Lib.Errors (AppResult, ErrType (AuthError))
-import Lib.Queue
-
-intToBytes :: Int -> Lazy.ByteString
-intToBytes = singleton . toEnum
-
-instance Sendable AuthRequest where
-  queueTo :: AuthRequest -> RedisQueue AuthRequest
-  queueTo = \_ -> RedisQueue "auth:request"
-
-instance Sendable AuthResponse
-
-instance Rcvable AuthResponse
-
-instance Respondable AuthRequest AuthResponse where
-  queueResp :: AuthRequest -> RedisQueue AuthResponse
-  queueResp (AuthRequest cid _ _ _) = RedisQueue (intToBytes cid)
-  
+import Lib.Queue (Stream(Stream), StreamMessage (..))
+import Lib.DataModel.AuthModel ( AuthRequest, AuthResponse )
+import Data.Binary ( Binary)
+import qualified Data.Binary as Binary
 
 
+authRequests :: Stream AuthRequest
+authRequests = Stream "auth:request"
+
+authResponse :: Stream AuthResponse
+authResponse = Stream "auth:request"
+
+-------------------------------------
+
+instance StreamMessage AuthRequest where
+  stream :: Stream AuthRequest
+  stream = authRequests
+
+instance StreamMessage AuthResponse where
+  stream :: Stream AuthResponse
+  stream = authResponse
+
+decodeStrict :: (Binary a) => Eager.ByteString -> a
+decodeStrict =  Binary.decode . Lazy.fromStrict
+
+encodeStrict :: (Binary a) =>  a -> Eager.ByteString
+encodeStrict =  Lazy.toStrict . Binary.encode 

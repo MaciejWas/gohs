@@ -41,6 +41,7 @@ library
     , base >=4.7 && <5
     , binary
     , bytestring ==0.10.12.1
+    , containers
     , hedis ==0.15.1
     , mtl
     , network
@@ -64,6 +65,7 @@ test-suite lib-test
     , base >=4.7 && <5
     , binary
     , bytestring ==0.10.12.1
+    , containers
     , hedis ==0.15.1
     , lib
     , mtl

@@ -6,25 +6,29 @@ import Auth (login, register)
 import Control.Monad.Except (MonadError (catchError))
 import Data.Binary (encode)
 import Lib.DataModel (AuthRequest (AuthRequest))
-import Lib.DataModel.AuthModel (AuthAction (..), AuthResponse)
-import Lib.Errors (AppResult, FromError (fromError))
+import Lib.DataModel.AuthModel (AuthAction (..), AuthResponse (AuthFailed))
+import Lib.Errors (AppResult, AppErr (AppErr), canBeShownToUser)
 import Lib.Log (logError)
-import Lib.Queue (QueueWorker (..), RedisQueue (..))
+import Lib.Queue
+import Lib.Worker (StreamWorker (..))
+
+type AuthRequestID = Int
 
 mainAuthAction :: () -> AuthRequest -> AppResult AuthResponse
-mainAuthAction _ (AuthRequest _cid action uname pswd) = case action of
-  Register -> catchError (register uname pswd) handleErr
-  Login -> catchError (login uname pswd) handleErr
+mainAuthAction _ (AuthRequest cid action uname pswd) = case action of
+  Register -> catchError (register cid uname pswd) handleErr
+  Login -> catchError (login cid uname pswd) handleErr
   where
-    handleErr err = logError err >> fromError err
+    handleErr err = logError err >> return (fromError err cid)
 
-runner :: QueueWorker AuthRequest AuthResponse ()
+fromError :: AppErr -> AuthRequestID -> AuthResponse
+fromError (AppErr errtype errmsg) cid = let message = if errtype `elem` canBeShownToUser then errmsg else "Internal error during authorization"
+                                        in AuthFailed cid message
+
+runner :: StreamWorker AuthRequest AuthResponse ()
 runner =
-  QueueWorker
-    { name = "Auth service",
-      listen_to = RedisQueue "auth:requests",
-      publish_to = RedisQueue "auth:reponses",
+  StreamWorker
+    { name = "authworker",
       loadState = return (),
-      findSubQueue = \(AuthRequest cid _ _ _) -> encode cid, -- lazy!
       ms_main = mainAuthAction
     }

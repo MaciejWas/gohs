@@ -29,6 +29,8 @@ import Lib.Errors
 import Lib.Persistence (RedisAddr (..), exists, get, set)
 import Security.Passwords (Hashed, IsValid (..), check, hash)
 
+type AuthRequestID = Int
+
 userPswd :: RedisAddr (Hashed Password)
 userPswd = RedisAddr "pswd:"
 
@@ -38,8 +40,8 @@ userId = RedisAddr "user:id:"
 sessions :: RedisAddr Rights
 sessions = RedisAddr "session:"
 
-register :: UserName -> Password -> AppResult AuthResponse
-register userName@(UserName uname) pswd = do
+register :: AuthRequestID -> UserName -> Password -> AppResult AuthResponse
+register idx userName@(UserName uname) pswd = do
   let utf8EncodedLogin = encodeUtf8 uname
   userExists <- exists userId utf8EncodedLogin
   if userExists
@@ -48,13 +50,13 @@ register userName@(UserName uname) pswd = do
   hashedPswd <- unwrap (hash pswd)
   userId <- getNextId
   set userPswd userId hashedPswd
-  login userName pswd
+  login idx userName pswd
 
 registerAdmin :: AppResult AuthResponse
-registerAdmin = register (UserName "admin") (PswdAsText "1234")
+registerAdmin = register 0 (UserName "admin") (PswdAsText "1234")
 
-login :: UserName -> Password -> AppResult AuthResponse
-login (UserName uname) pswd = do
+login :: AuthRequestID -> UserName -> Password -> AppResult AuthResponse
+login idx (UserName uname) pswd = do
   let utf8EncodedLogin = encodeUtf8 uname
   uid <- get userId utf8EncodedLogin `orThrowIfEmpty` userDoesNotExist
   storedPswd <- get userPswd uid `orThrowIfEmpty` pswdNotFound
@@ -63,7 +65,7 @@ login (UserName uname) pswd = do
   set sessions sess rights
 
   case check pswd storedPswd of
-    IsValid -> return (AuthOk sess)
+    IsValid -> return (AuthOk idx sess)
     IsNotValid -> throwError wrongPswd
 
 -- ERRORS --------------

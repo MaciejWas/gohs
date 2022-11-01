@@ -19,6 +19,7 @@ dependencies:
  - pretty-terminal == 0.1.0.0
  - mtl
  - uuid
+ - containers
 ghc-options:
 - -Wall
 - -Wcompat

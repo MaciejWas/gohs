@@ -3,7 +3,8 @@ module Main (main) where
 import AuthWorker (runner)
 import Database.Redis (checkedConnect, defaultConnectInfo)
 import Lib.Log (info)
-import Lib.Queue (run)
+import Lib.Worker (run)
+import Api 
 
 main :: IO ()
 main = do
