@@ -31,7 +31,6 @@ import qualified Data.ByteString.Lazy as Lazy
 import Data.Binary (Binary)
 import GHC.Generics (Generic)
 import Data.UUID (UUID)
-import qualified Lib.Log
 
 type AuthRequestID = Int
 type UserID = Int
@@ -52,6 +51,8 @@ usersIds = RedisAddr "user:id:"
 
 userSession :: RedisAddr UserID Session
 userSession = RedisAddr "user:session:"
+
+--
 
 sessionData :: RedisAddr Session SessionData
 sessionData = RedisAddr "session:data:"
@@ -88,7 +89,7 @@ login' requestId (LoginRequestData ipaddr userName pswd) = do
   case check pswd storedPswd of
     IsValid -> do
       sess <- createOrRetrieveSession requestId ipaddr userName
-      return (LoginResponse requestId (LoginResponseOK userName userId sess))
+      return $ LoginResponse requestId (LoginResponseOK userName userId sess)
     IsNotValid -> throwError wrongPswd
 
 login :: AuthRequestID -> LoginRequestData -> AppResult AuthResponse
@@ -101,18 +102,15 @@ createOrRetrieveSession requestId ipaddr userName = do
     userId <- get usersIds (utf8 userName) `orThrowIfEmpty` (InternalErr `withMessage` Data.Text.pack ("Could not find user while processing id=" ++ show requestId))
     currSess <- get userSession userId
     case currSess of
-      Nothing -> createNewSession requestId ipaddr userId
+      Nothing -> createNewSession requestId (LoggedAs ipaddr userId)
       Just sess -> do
-        loginfo ("Session exists for user=" ++ show userName)
         currTimeSecs <- currentUnixTime
-        (SessionData _ expireTime) <- get sessionData sess `orThrowIfEmpty` (InternalErr `withMessage` Data.Text.pack ("Could not find session data for request id=" ++ show requestId))
-        if expireTime > currTimeSecs then return sess else createNewSession requestId ipaddr userId
+        (SessionData rights expireTime) <- get sessionData sess `orThrowIfEmpty` (InternalErr `withMessage` Data.Text.pack ("Could not find session data for request id=" ++ show requestId))
+        if expireTime > currTimeSecs then return sess else createNewSession requestId rights
 
-createNewSession :: AuthRequestID -> IPAddr -> UserID -> AppResult Session
-createNewSession requestId ipaddr userid = do
-  loginfo ("Creating new session for user=" ++ show userid)
-  (session, sessData) <- createSession (LoggedAs ipaddr userid) `orThrowIfEmpty` (InternalErr `withMessage` Data.Text.pack ("Generating session failed for request id=" ++ show requestId))
-  set userSession userid session
+createNewSession :: AuthRequestID -> Rights -> AppResult Session
+createNewSession requestId rights = do
+  (session, sessData) <- createSession rights `orThrowIfEmpty` (InternalErr `withMessage` Data.Text.pack ("Generating session failed for request id=" ++ show requestId))
   set sessionData session sessData
   return session
 
@@ -155,5 +153,3 @@ currentUnixTime = do
    (UnixTime secs _msecs) <- liftIO getUnixTime
    let currTimeSecs = fromEnum secs
    return currTimeSecs
-
-loginfo x = liftIO (Lib.Log.info x)

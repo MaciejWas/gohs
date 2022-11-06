@@ -16,10 +16,12 @@ dependencies:
  - network
  - binary
  - aeson
+ - text
  - pretty-terminal == 0.1.0.0
  - mtl
  - uuid
  - containers
+ - unix-time
 ghc-options:
 - -Wall
 - -Wcompat

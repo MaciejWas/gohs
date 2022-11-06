@@ -30,6 +30,8 @@ library
       Gate.DataModel
       Gate.Endpoint
       Gate.Games
+      Gate.Sessions
+      Requests
   other-modules:
       Paths_gate
   hs-source-dirs:
@@ -47,6 +49,7 @@ library
     , network
     , relude
     , text
+    , uuid
     , wai
     , wai-websockets
     , warp
@@ -73,6 +76,7 @@ executable gate-exe
     , network
     , relude
     , text
+    , uuid
     , wai
     , wai-websockets
     , warp
@@ -100,6 +104,7 @@ test-suite gate-test
     , network
     , relude
     , text
+    , uuid
     , wai
     , wai-websockets
     , warp

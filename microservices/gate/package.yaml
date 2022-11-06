@@ -29,6 +29,7 @@ dependencies:
 - network
 - hedis
 - text
+- uuid
 - wai-websockets
 - mtl
 - errors

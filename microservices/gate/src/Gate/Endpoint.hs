@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Gate.Endpoint (Endpoint(..), findEndpointFor, sendBack, findIP) where
+module Gate.Endpoint (Endpoint(..), findEndpointFor, sendBack, findIP, getToken) where
     import Web.Cookie (parseCookies)
     import Network.HTTP.Types (Method)
     import Network.HTTP.Types.Header (Header)
@@ -8,18 +8,18 @@ module Gate.Endpoint (Endpoint(..), findEndpointFor, sendBack, findIP) where
     import Network.Wai (Request (..), Response, requestMethod, responseLBS)
     import Network.Socket (SockAddr(..))
 
-    import Data.Aeson (ToJSON, FromJSON, decode, encode)
+    import Data.Aeson (ToJSON, encode)
     import Data.Text (Text)
     import Data.ByteString (ByteString)
-    import qualified Data.ByteString.Lazy as Lazy
 
-    import Lib.Errors (AppResult, withMessage, ErrType (..), AppErr, unwrap)
-    import Lib.DataModel.AuthModel (IPAddr (..), Rights)
+    import Lib.Errors (AppResult, withMessage, ErrType (..), AppErr)
+    import Lib.DataModel.AuthModel (IPAddr (..))
+    import Data.UUID (UUID, fromASCIIBytes)
     
     data Endpoint = Endpoint {
         _pathOf :: [Text], -- | path to endpoint. E.g. /users/0/data
         _method :: Method,
-        _action :: Request -> Rights -> AppResult Response,
+        _action :: Request -> AppResult Response,
         _headers :: [Header]
     }
 
@@ -45,11 +45,6 @@ module Gate.Endpoint (Endpoint(..), findEndpointFor, sendBack, findIP) where
     sendBack :: (ToJSON a) => Status -> [Header] -> a -> AppResult Response
     sendBack status headers = return . responseLBS status headers . encode
 
-    deserialize :: (FromJSON a) => Lazy.ByteString -> Either AppErr a
-    deserialize serialized = case decode serialized of
-        Just deserialized -> return deserialized
-        Nothing ->  Left (BadReq `withMessage` "Could not deserialize")
-
     getCookies :: Request -> [Cookie]
     getCookies req = let headers = requestHeaders req
                          cookies = case filter ((=="Cookie") . fst) headers of (_header, cs):_ -> cs
@@ -60,6 +55,10 @@ module Gate.Endpoint (Endpoint(..), findEndpointFor, sendBack, findIP) where
     getTokenBytes cookies = case filter isToken cookies of
       (_key, value):_ -> Just value
       []              -> Nothing
+
+
+    getToken :: Request -> Maybe UUID
+    getToken req = (getTokenBytes . getCookies) req >>= fromASCIIBytes
 
     isToken :: Cookie -> Bool
     isToken (key, _val) = key == "token"

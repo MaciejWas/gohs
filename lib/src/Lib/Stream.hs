@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PartialTypeSignatures #-}
@@ -6,29 +5,29 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-module Lib.Queue (Stream (Stream), StreamData, GroupName, ConsumerName, Group (Group), Consumer (Consumer), StreamMessage (..), registerConsumer, rcv, send) where
+{-# HLINT ignore "Use <&>" #-}
 
-import Control.Monad (void)
+module Lib.Stream (Stream (Stream), StreamData, GroupName, ConsumerName, Group (Group), Consumer (Consumer), StreamMessage (..), registerConsumer, registerGroup, rcv, send, watch) where
+
+import Control.Concurrent (threadDelay)
 import Control.Monad.Except (throwError)
 import Control.Monad.IO.Class (liftIO)
-import Data.Binary (Binary)
-import qualified Data.Binary as B
-import qualified Data.Binary as Binary
+import Data.Aeson (FromJSON, decode, encode)
+import Data.Aeson.Types (ToJSON)
 import qualified Data.ByteString as Eager
 import qualified Data.ByteString.Lazy as Lazy
 import Data.Maybe (fromJust)
 import Data.Text (pack)
-import Database.Redis (XReadOpts (..))
 import qualified Database.Redis as R
+import Database.Redis.Sentinel (Reply (Integer))
 import Lib.Errors
   ( AppResult,
     ErrType (InternalErr),
-    doWithRedis,
+    doWithRedis, 
     unwrapDb,
     withMessage,
   )
 import qualified Lib.Log
-import Database.Redis.Sentinel (Reply(Integer))
 
 type GroupName = Eager.ByteString
 
@@ -46,16 +45,16 @@ type Predicate r = r -> Bool
 
 type RedisID = Eager.ByteString
 
-defaultMsgDeserializer :: Binary a => StreamData -> a
+defaultMsgDeserializer :: FromJSON a => StreamData -> a
 defaultMsgDeserializer strdata =
-  let serialized = fromJust $ lookup ("data" :: Eager.ByteString) strdata
-   in decodeStrict serialized
+  let serialized = Lazy.fromStrict $ fromJust $ lookup ("data" :: Eager.ByteString) strdata
+   in fromJust (decode serialized)
 
-defaultMsgSerializer :: (Binary a) => a -> StreamData
-defaultMsgSerializer req = [("data", encodeStrict req)]
+defaultMsgSerializer :: (ToJSON a) => a -> StreamData
+defaultMsgSerializer req = [("data", Lazy.toStrict (encode req))]
 
 -- An object which can be put on and read from a Redis stream
-class (Binary a) => StreamMessage a where
+class (ToJSON a, FromJSON a) => StreamMessage a where
   stream :: Stream a
 
   toMsg :: a -> StreamData
@@ -64,20 +63,17 @@ class (Binary a) => StreamMessage a where
   fromMsg :: StreamData -> a
   fromMsg = defaultMsgDeserializer
 
-registerConsumer :: (StreamMessage r) => Consumer r -> AppResult ()
-registerConsumer consumer@(Consumer (Group gname) cname :: Consumer r) =
+registerGroup :: (StreamMessage r) => Group r -> AppResult ()
+registerGroup (Group gname :: Group r) =
   let (Stream strname) = stream :: Stream r
+      createGroup = R.sendRequest ["XGROUP", "CREATE", strname, gname, "$", "MKSTREAM"] :: R.Redis (Either R.Reply Eager.ByteString)
+   in liftIO (Lib.Log.info "Creating group...") >> doWithRedis createGroup >>= handleResult
 
-      handleResult (Left (Integer 1)) = liftIO (Lib.Log.info "Created 1 new consumer") :: AppResult ()
-      handleResult (Left err) = throwError (InternalErr `withMessage` (pack . show) err) :: AppResult ()
-      handleResult (Right status) = liftIO (Lib.Log.info $ "Received status " ++ show status ++ " while creating group and consumer.") :: AppResult ()
-
-      createGroup =    R.sendRequest ["XGROUP", "CREATE", strname, gname, "$", "MKSTREAM"] :: R.Redis (Either R.Reply Eager.ByteString)
+registerConsumer :: (StreamMessage r) => Consumer r -> AppResult ()
+registerConsumer (Consumer (Group gname) cname :: Consumer r) =
+  let (Stream strname) = stream :: Stream r
       createConsumer = R.sendRequest ["XGROUP", "CREATECONSUMER", strname, gname, cname] :: R.Redis (Either R.Reply Eager.ByteString)
-   in    liftIO (Lib.Log.info $ "Registering " ++ show consumer) 
-      >> liftIO (Lib.Log.info "Creating group..." ) >> doWithRedis createGroup >>= handleResult
-      >> liftIO (Lib.Log.info "Creating consumer...") >> doWithRedis createConsumer >>= handleResult
-
+   in liftIO (Lib.Log.info "Creating consumer...") >> doWithRedis createConsumer >>= handleResult
 
 send :: StreamMessage r => r -> AppResult ()
 send (obj :: r) =
@@ -110,30 +106,37 @@ unpackStreamReadResult (Right (Just things)) = case map R.records things of
     deserializeAllObjs = fmap (\(R.StreamsRecord _id fields) -> (_id, fromMsg fields))
 
 watch' :: StreamMessage r => RedisID -> Predicate r -> (r -> AppResult a) -> AppResult a
-watch' id check (actOn :: r -> AppResult a) =
+watch' redisId check (actOn :: r -> AppResult a) =
   let streamReadOptions = R.XReadOpts Nothing Nothing
       (Stream strname) = stream :: Stream r
-      streamsToReadFrom = [(strname, id)]
+      streamsToReadFrom = [(strname, redisId)]
       readOperation = R.xreadOpts streamsToReadFrom streamReadOptions
    in do
         rawmessages <- doWithRedis readOperation
         messages <- unpackStreamReadResult rawmessages :: AppResult [(RedisID, r)]
-        let relevantMessages = map snd $ filter (\(id, msg) -> check msg) messages
-        let lastMsgIndex = fst (last messages)
+        let relevantMessages = map snd $ filter (\(_id, msg) -> check msg) messages
+        let lastMsgIndex = if null messages then redisId else fst (last messages)
         case relevantMessages of
-          [] -> watch' lastMsgIndex check actOn
-          x : _ -> liftIO (Lib.Log.info "Discarded messages.") >> actOn x
+          [] ->
+            liftIO (threadDelay 1000)
+              >> watch' lastMsgIndex check actOn
+          x : _ -> actOn x
 
 watch :: StreamMessage r => Predicate r -> (r -> AppResult a) -> AppResult a
-watch = watch' "0"
+watch check (actOn :: r -> AppResult a) = do
+  let (Stream strname) = stream :: Stream r
+  lastEntry <- doWithRedis (R.xrevRange strname "+" "-" (Just 1)) >>= unwrapDb
+  let redisId = case lastEntry of
+        [] -> "0"
+        (R.StreamsRecord redisId' _data) : _ -> redisId'
+  watch' redisId check actOn
 
 -- UTILS --
 
 ignoreResult :: Monad m => m ()
 ignoreResult = return ()
 
-decodeStrict :: (Binary a) => Eager.ByteString -> a
-decodeStrict = Binary.decode . Lazy.fromStrict
-
-encodeStrict :: (Binary a) => a -> Eager.ByteString
-encodeStrict = Lazy.toStrict . Binary.encode
+handleResult :: Show a => Either Reply a -> AppResult ()
+handleResult (Left (Integer _)) = liftIO (Lib.Log.info "Ok") :: AppResult ()
+handleResult (Left err) = throwError (InternalErr `withMessage` (pack . show) err) :: AppResult ()
+handleResult (Right status) = liftIO (Lib.Log.info $ "Received status " ++ show status ++ " while creating group and consumer.") :: AppResult ()

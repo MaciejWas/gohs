@@ -26,10 +26,12 @@ library
       Lib
       Lib.DataModel
       Lib.DataModel.AuthModel
+      Lib.DataModel.UserModel
       Lib.Errors
+      Lib.IdMap
       Lib.Log
       Lib.Persistence
-      Lib.Queue
+      Lib.Stream
       Lib.Worker
   other-modules:
       Paths_lib
@@ -47,8 +49,10 @@ library
     , network
     , pretty-terminal ==0.1.0.0
     , relude
+    , text
     , time ==1.9.3
     , timestamp ==0.2
+    , unix-time
     , uuid
   default-language: Haskell2010
 
@@ -72,7 +76,9 @@ test-suite lib-test
     , network
     , pretty-terminal ==0.1.0.0
     , relude
+    , text
     , time ==1.9.3
     , timestamp ==0.2
+    , unix-time
     , uuid
   default-language: Haskell2010

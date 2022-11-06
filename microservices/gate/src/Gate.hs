@@ -6,25 +6,29 @@ module Gate
   )
 where
 
+import GHC.Generics (Generic)
+
 import Control.Monad.Except (catchError, throwError)
 import Control.Monad.IO.Class (liftIO)
+
 import Data.Aeson (ToJSON)
-import Gate.Auth (loginEndpointAction, registerEndpointAction)
-import Gate.Endpoint (Endpoint (Endpoint), findEndpointFor, sendBack)
-import Gate.Games (getGamesEndpoint)
-import Lib.DataModel.AuthModel (Rights)
+
+import Network.HTTP.Types (Header, hAccept, hContentType, methodGet, status200, status404, status405, status500, methodPost)
+import Network.Wai (Request, Response, mapResponseHeaders)
+
 import Lib.Errors (AppErr (AppErr), AppResult, ErrType (..), canBeShownToUser)
 import Lib.Log (err)
-import Network.HTTP.Types (Header, hAccept, hContentType, methodGet, methodPut, status200, status404, status405, status500)
-import Network.Wai (Request, Response, mapResponseHeaders)
-import Relude (Generic)
+
+import Gate.Endpoint (Endpoint (Endpoint), findEndpointFor, sendBack)
+import Gate.Games (getGamesEndpoint)
+import Gate.Auth (loginEndpointAction, registerEndpointAction)
 
 endpoints :: [Endpoint]
 endpoints =
-  [ Endpoint ["auth"] methodPut registerEndpointAction [hAcceptJSON, hContentUTF8JSON],
-    Endpoint ["auth"] methodGet loginEndpointAction [hAcceptJSON, hContentUTF8JSON],
-    Endpoint ["ping"] methodGet pingEndpoint [hAcceptAll, hContentUTF8JSON],
-    Endpoint ["games"] methodGet getGamesEndpoint []
+  [ Endpoint ["auth", "register"] methodPost registerEndpointAction [ hAcceptJSON, hContentUTF8JSON ],
+    Endpoint ["auth", "login"]    methodPost loginEndpointAction    [ hAcceptJSON, hContentUTF8JSON ],
+    Endpoint ["ping"]             methodGet  pingEndpoint           [ hAcceptAll,  hContentUTF8JSON ],
+    Endpoint ["games"]            methodGet  getGamesEndpoint       []
   ]
 
 handle :: Request -> AppResult Response
@@ -32,10 +36,9 @@ handle req = tryToHandle req `catchError` handleErr
 
 tryToHandle :: Request -> AppResult Response
 tryToHandle req = case findEndpointFor endpoints req of
-  Left err -> throwError err
+  Left apperr -> throwError apperr
   Right (Endpoint _ _ process headers) ->
-    let rights = getRights req
-        endpointResult = process req rights
+    let endpointResult = process req
         addEndpointHeaders = mapResponseHeaders (++ headers)
      in addEndpointHeaders <$> endpointResult
 
@@ -49,15 +52,13 @@ handleErr (AppErr errtype errmsg) = do
         _ -> status500
   sendBack status [] responseMsg
 
-getRights :: Request -> Rights
-getRights = undefined
 
-pingEndpoint :: Request -> Rights -> AppResult Response
-pingEndpoint _ _ = sendBack status200 [] ("pong" :: String)
+pingEndpoint :: Request -> AppResult Response
+pingEndpoint _ = sendBack status200 [] ("pong" :: String)
 
 -- Responses
 
-data BasicResponse a = BasicResponse {success :: Bool, msg :: String, info :: Maybe a} deriving (Generic)
+data BasicResponse a = BasicResponse { success :: Bool, msg :: String, info :: Maybe a } deriving (Generic)
 
 instance (ToJSON a) => ToJSON (BasicResponse a)
 
