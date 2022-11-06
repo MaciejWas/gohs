@@ -3,7 +3,7 @@ Do you like Haskell? Do you like baduk? If yes, you might like this repo
 
 
 # How to run
-Provided Haskell (ghcup, stack) is installed:
+Provided Haskell (ghcup, stack) and Redis is installed:
 
 ```
 $ redis-server&
