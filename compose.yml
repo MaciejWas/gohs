@@ -33,5 +33,3 @@ networks:
     ipam:
       config:
         - subnet: 172.17.0.0/16
-          #docker-compose v3+ do not use ip_range
-          #ip_range: 172.28.5.0/24
