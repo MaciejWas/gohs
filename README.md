@@ -1,5 +1,5 @@
 # gohs
-Do you like Haskell? Do you like baduk? If yes, you might like this repo.
+Do you like Haskell? Do you like baduk? Do you like event-driven microservices? If yes, you might like this repo.
 
 * This will be a event-driven game server. 
 * Might be a good tutorial on how to build microservices with Haskell.
