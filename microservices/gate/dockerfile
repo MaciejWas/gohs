@@ -1,0 +1,12 @@
+FROM haskell:9.0.2
+
+ENV REDIS_HOST redis
+ENV REDIS_PORT 6379
+
+COPY ./microservices/gate/ /gate
+COPY ./lib                 /app-lib/
+
+EXPOSE 3000
+
+RUN        cd gate && stack install --stack-yaml ./stack-docker.yaml
+ENTRYPOINT cd gate && stack run     --stack-yaml ./stack-docker.yaml

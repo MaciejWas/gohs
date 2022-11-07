@@ -1,0 +1,15 @@
+resolver:
+  url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/25.yaml
+packages:
+- .
+- /app-lib
+extra-deps:
+- timestamp-0.2
+- cookies-0.1.0.0
+- chronos-1.1.4
+- bytebuild-0.3.11.0
+- byteslice-0.2.7.0
+- bytesmith-0.3.9.0
+- contiguous-0.6.2.0
+- run-st-0.1.1.0
+- zigzag-0.0.1.0

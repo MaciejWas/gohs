@@ -9,12 +9,28 @@ module Main (main) where
   import qualified Network.WebSockets as WS
   import qualified Network.Wai.Handler.WebSockets as WaiWS
   import Control.Monad.Except ( runExceptT )
-  import Database.Redis ( runRedis, checkedConnect, defaultConnectInfo, Connection )
+  import Database.Redis ( runRedis, checkedConnect, defaultConnectInfo, Connection, ConnectInfo(..), PortID(..))
+  import System.Environment (lookupEnv)
 
   import Gate ( handle )
   import Lib.Log (info)
   
   type RedisConnection = Connection
+
+
+  orIfEmpty :: Maybe a -> a -> a
+  orIfEmpty (Just a) _ = a
+  orIfEmpty Nothing a = a
+
+  loadConnInfo :: IO ConnectInfo
+  loadConnInfo = do
+    hostenv <- lookupEnv "REDIS_HOST" 
+    let host = hostenv `orIfEmpty` "localhost"
+    portenv <- lookupEnv "REDIS_PORT" 
+    let rport = case portenv of Nothing -> PortNumber 6379
+                                Just text -> PortNumber (read text)
+    return (defaultConnectInfo { connectHost = host, connectPort = rport })
+
 
   port :: Int
   port = 3000
@@ -27,7 +43,7 @@ module Main (main) where
   main = info "Starting gate server" >> getRedisConnection >>= startAppWithRedisConn
 
   getRedisConnection :: IO RedisConnection
-  getRedisConnection = checkedConnect defaultConnectInfo
+  getRedisConnection = loadConnInfo >>= checkedConnect
 
   startAppWithRedisConn :: RedisConnection -> IO ()
   startAppWithRedisConn conn

@@ -1,0 +1,12 @@
+FROM haskell:9.0.2
+
+ENV REDIS_HOST redis
+ENV REDIS_PORT 6379
+
+COPY ./microservices/auth/ /auth
+COPY ./lib                 /app-lib/
+
+RUN        cd auth && stack install --stack-yaml ./stack-docker.yaml
+ENTRYPOINT cd auth && stack run     --stack-yaml ./stack-docker.yaml
+
+

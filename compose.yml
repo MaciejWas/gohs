@@ -1,0 +1,37 @@
+version: '3.2'
+
+services:
+  redis:
+    image: redis:7.0.5
+    networks:
+      - app-tier
+    ports:
+      - '6379:6379'
+
+  gate:
+    build:
+      context: ./
+      dockerfile: ./microservices/gate/dockerfile
+    ports:
+      - '0:40000'
+    depends_on:
+      - redis
+    networks:
+      app-tier:
+        ipv4_address: 172.20.0.4
+   
+  auth:
+    build:
+      context: ./
+      dockerfile: ./microservices/auth/dockerfile
+    depends_on:
+      - redis
+    networks:
+      - app-tier
+networks:
+  app-tier:
+    ipam:
+      config:
+        - subnet: 172.17.0.0/16
+          #docker-compose v3+ do not use ip_range
+          #ip_range: 172.28.5.0/24
