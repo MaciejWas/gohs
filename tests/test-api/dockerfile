@@ -1,0 +1,7 @@
+FROM python:latest
+
+COPY ./tests/test-api /tests
+
+RUN pip install -r /tests/requirements.txt
+
+ENTRYPOINT cd /tests && python api_tests.py

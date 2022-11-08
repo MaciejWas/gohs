@@ -13,8 +13,8 @@ packages:
     hackage: timestamp-0.2
 snapshots:
 - completed:
-    sha256: 1ecad1f0bd2c27de88dbff6572446cfdf647c615d58a7e2e2085c6b7dfc04176
-    size: 619403
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/25.yaml
+    sha256: e5f56f619132209b826084cacd6374d7f0344cc88a9d1d305878190e4204ae1f
+    size: 619205
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/31.yaml
   original:
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/25.yaml
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/31.yaml

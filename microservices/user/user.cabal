@@ -4,86 +4,52 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 
-name:           auth
-version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/auth#readme>
-homepage:       https://github.com/githubuser/auth#readme
-bug-reports:    https://github.com/githubuser/auth/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2022 Author name here
-license:        BSD3
+name:           user
+version:        0.0.0
 build-type:     Simple
-
-source-repository head
-  type: git
-  location: https://github.com/githubuser/auth
 
 library
   exposed-modules:
-      Auth
-      AuthWorker
-      Security.Passwords
+      Lib
   other-modules:
-      Paths_auth
+      Paths_user
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      aeson
-    , base >=4.7 && <5
-    , binary
+      base >=4.7 && <5
     , bytestring
-    , cryptonite
     , hedis
-    , lib
-    , mtl
-    , text
-    , unix-time
-    , uuid
+    , postgresql-simple
   default-language: Haskell2010
 
-executable auth-exe
+executable user-exe
   main-is: Main.hs
   other-modules:
-      Paths_auth
+      Paths_user
   hs-source-dirs:
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson
-    , auth
-    , base >=4.7 && <5
-    , binary
+      base >=4.7 && <5
     , bytestring
-    , cryptonite
     , hedis
-    , lib
-    , mtl
-    , text
-    , unix-time
-    , uuid
+    , postgresql-simple
+    , user
   default-language: Haskell2010
 
-test-suite auth-test
+test-suite user-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Paths_auth
+      Paths_user
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson
-    , auth
-    , base >=4.7 && <5
-    , binary
+      base >=4.7 && <5
     , bytestring
-    , cryptonite
     , hedis
-    , lib
-    , mtl
-    , text
-    , unix-time
-    , uuid
+    , postgresql-simple
+    , user
   default-language: Haskell2010

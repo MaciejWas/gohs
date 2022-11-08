@@ -1,6 +1,17 @@
 version: '3.2'
 
 services:
+  db:
+    image: postgres:15.0
+    networks:
+      - app-tier
+    ports:
+      - "5431:5431"
+    environment:
+      POSTGRES_PASSWORD: 76d059610f5b
+      POSTGRES_USER: postgres
+      PGPORT: 5432
+
   redis:
     image: redis:7.0.5
     networks:
@@ -16,10 +27,10 @@ services:
       - '0:40000'
     depends_on:
       - redis
+      - auth
+      - user
     networks:
-      app-tier:
-        ipv4_address: 172.20.0.4
-   
+      - app-tier
   auth:
     build:
       context: ./
@@ -28,6 +39,30 @@ services:
       - redis
     networks:
       - app-tier
+
+  user:
+    build:
+      context: ./
+      dockerfile: ./microservices/user/dockerfile
+    depends_on:
+      - redis
+      - db
+    networks:
+      - app-tier
+    environment:
+      POSTGRES_PASSWORD: abcde
+      POSTGRES_USER: postgres
+      PGPORT: 5431
+
+  api-tests:
+    build:
+      context: ./
+      dockerfile: ./tests/test-api/dockerfile
+    depends_on:
+      - gate
+    networks:
+      - app-tier
+
 networks:
   app-tier:
     ipam:

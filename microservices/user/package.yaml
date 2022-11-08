@@ -1,23 +1,8 @@
-name:                auth
-version:             0.1.0.0
-github:              "githubuser/auth"
-license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2022 Author name here"
-description:         Please see the README on GitHub at <https://github.com/githubuser/auth#readme>
 dependencies:
 - base >= 4.7 && < 5
 - bytestring
-- cryptonite
-- aeson
-- text
-- binary
-- lib
-- mtl
 - hedis
-- uuid
-- unix-time
+- postgresql-simple
 ghc-options:
 - -Wall
 - -Wcompat
@@ -29,11 +14,11 @@ ghc-options:
 - -Wpartial-fields
 - -Wredundant-constraints
 
-
 library:
   source-dirs: src
+
 executables:
-  auth-exe:
+  user-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -41,9 +26,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - auth
+    - user
+
 tests:
-  auth-test:
+  user-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -51,4 +37,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - auth
+    - user
